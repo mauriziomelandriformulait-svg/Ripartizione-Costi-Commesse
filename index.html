@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controller - Ripartizione Costi Automezzi</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome per Icone -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        pantone: '#FEDF00',
+                        pantoneDark: '#e0c500',
+                        darkText: '#1a1a1a',
+                        brandBg: '#f8fafc'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9;
+        }
+        /* Personalizzazione scrollbar per tabelle */
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col">
+
+    <!-- HEADER / BANNER PANTONE -->
+    <header class="bg-pantone text-darkText shadow-md border-b-2 border-pantoneDark sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="p-2.5 bg-darkText text-pantone rounded-xl shadow">
+                    <i class="fa-solid fa-truck-monster text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-bold tracking-tight">Fleet Controller Pro</h1>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-darkText/80">Ripartizione Costi Automezzi & Quadratura Commesse</p>
+                </div>
+            </div>
+            
+            <!-- Azioni Rapide Header -->
+            <div class="flex flex-wrap items-center gap-2">
+                <button onclick="caricaDatiEsempio()" class="px-3.5 py-2 bg-darkText text-white hover:bg-slate-800 text-xs font-semibold rounded-lg shadow transition flex items-center gap-2">
+                    <i class="fa-solid fa-database text-pantone"></i> Carica Dati Esempio
+                </button>
+                <button onclick="calcolaERipartisci(true)" class="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-lg shadow transition flex items-center gap-2">
+                    <i class="fa-solid fa-calculator"></i> Calcola & Ripartisci
+                </button>
+                <button onclick="esportaCSV()" class="px-3.5 py-2 bg-white hover:bg-slate-100 text-darkText border border-slate-300 text-xs font-semibold rounded-lg shadow transition flex items-center gap-2">
+                    <i class="fa-solid fa-file-csv text-emerald-600"></i> Esporta Report CSV
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- NAVIGAZIONE TAB -->
+    <div class="bg-white border-b border-slate-200 shadow-sm sticky top-[73px] z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <nav class="flex space-x-2 md:space-x-8 overflow-x-auto" aria-label="Tabs">
+                <button onclick="switchTab('tab1')" id="btn-tab1" class="tab-btn py-3.5 px-3 inline-flex items-center gap-2 border-b-2 border-pantone text-darkText font-bold text-sm whitespace-nowrap">
+                    <i class="fa-solid fa-calendar-check text-amber-600"></i> 1. Rilevazione Utilizzo
+                </button>
+                <button onclick="switchTab('tab2')" id="btn-tab2" class="tab-btn py-3.5 px-3 inline-flex items-center gap-2 border-b-2 border-transparent text-slate-500 hover:text-slate-700 font-medium text-sm whitespace-nowrap">
+                    <i class="fa-solid fa-file-invoice-dollar text-slate-400"></i> 2. Bilancio Costi CDC/Matricola
+                </button>
+                <button onclick="switchTab('tab3')" id="btn-tab3" class="tab-btn py-3.5 px-3 inline-flex items-center gap-2 border-b-2 border-transparent text-slate-500 hover:text-slate-700 font-medium text-sm whitespace-nowrap">
+                    <i class="fa-solid fa-chart-pie text-slate-400"></i> 3. Report Ripartizione & Quadratura
+                </button>
+            </nav>
+        </div>
+    </div>
+
+    <!-- NOTIFICHE ALLERTA / OVERLAP -->
+    <div id="notification-banner" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+        <div class="p-4 bg-amber-50 border-l-4 border-amber-500 text-amber-800 rounded-r-lg shadow-sm flex items-start justify-between">
+            <div class="flex items-start gap-3">
+                <i class="fa-solid fa-triangle-exclamation text-amber-600 text-lg mt-0.5"></i>
+                <div id="notification-text" class="text-sm"></div>
+            </div>
+            <button onclick="chiudiNotifica()" class="text-amber-600 hover:text-amber-800 font-bold ml-4">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- CONTENUTO PRINCIPALE -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow w-full">
+
+        <!-- ================= TAB 1: RILEVAZIONE UTILIZZO AUTOMEZZI ================= -->
+        <section id="tab1" class="tab-content space-y-6">
+            
+            <!-- SELETTORE E SCHEDA MATRICOLA -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Seleziona Automezzo / Matricola</label>
+                        <div class="relative">
+                            <select id="select-matricola" onchange="cambiaMatricolaAttiva()" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-amber-500 focus:border-amber-500 p-3 font-semibold pr-10">
+                                <!-- Popolato via JS -->
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="lg:col-span-2 bg-slate-50 rounded-xl p-4 border border-slate-200 flex flex-wrap justify-between items-center gap-4">
+                        <div class="flex items-center gap-4">
+                            <div class="p-3 bg-pantone text-darkText rounded-lg shadow-sm">
+                                <i class="fa-solid fa-van-shuttle text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 id="info-matricola-nome" class="font-bold text-slate-800 text-base">---</h3>
+                                <p id="info-matricola-dettagli" class="text-xs text-slate-500">Targa: --- | CDC: ---</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-6 text-sm">
+                            <div class="text-right">
+                                <span class="block text-xs text-slate-500 uppercase font-bold">GG Assegnati</span>
+                                <span id="info-gg-totali" class="text-base font-bold text-slate-800">0</span>
+                            </div>
+                            <div class="text-right border-l pl-6 border-slate-300">
+                                <span class="block text-xs text-slate-500 uppercase font-bold">GG Netti Utili</span>
+                                <span id="info-gg-netti" class="text-base font-bold text-emerald-600">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TABELLA ASSEGNAZIONE COMMESSE -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center flex-wrap gap-2">
+                    <div>
+                        <h2 class="font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-diagram-project text-amber-500"></i> Allocation Matrix per Commessa
+                        </h2>
+                        <p class="text-xs text-slate-500">Definisci i periodi di operatività del mezzo sulle varie commesse nel mese attivo</p>
+                    </div>
+                    <button onclick="aggiungiRigaCommessa()" class="px-3 py-1.5 bg-darkText text-white hover:bg-slate-800 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-plus text-pantone"></i> Aggiungi Commessa
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left border-collapse min-w-[800px]">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-600 uppercase text-[11px] tracking-wider border-b border-slate-200">
+                                <th class="p-3">Commessa / Cantiere</th>
+                                <th class="p-3 w-36">Data Inizio</th>
+                                <th class="p-3 w-36">Data Fine</th>
+                                <th class="p-3 text-center w-20">GG Tot.</th>
+                                <th class="p-3 text-center w-20">GG Ass.</th>
+                                <th class="p-3 text-center w-28">Op. Var.</th>
+                                <th class="p-3 text-center w-24">Var. Unit</th>
+                                <th class="p-3 text-center w-24">GG Netti</th>
+                                <th class="p-3 text-center w-16">Azione</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-commesse" class="divide-y divide-slate-200 text-sm">
+                            <!-- Popolato via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- CALENDARIO DINAMICO GIORNO PER GIORNO -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-calendar-days text-amber-500"></i> Calendario Presenze & Spunte Giornaliere (Mese Attivo)
+                        </h3>
+                        <p class="text-xs text-slate-500">I giorni evidenziati in rosa sono weekend. Seleziona le giornate effettive di impiego.</p>
+                    </div>
+                    <div class="flex items-center gap-3 text-xs font-medium">
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 bg-amber-200 border border-amber-400 rounded"></span> Attivo</span>
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 bg-red-100 border border-red-300 rounded"></span> Weekend</span>
+                    </div>
+                </div>
+
+                <!-- GRIGLIA CALENDARIO -->
+                <div id="calendario-container" class="overflow-x-auto custom-scrollbar pb-2">
+                    <!-- Popolato via JS -->
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ================= TAB 2: BILANCIO COSTI PER CDC/MATRICOLA ================= -->
+        <section id="tab2" class="tab-content hidden space-y-6">
+            
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center flex-wrap gap-2">
+                    <div>
+                        <h2 class="font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-coins text-amber-500"></i> Registro Costi Diretti da Contabilità Generale / Bilancio
+                        </h2>
+                        <p class="text-xs text-slate-500">Inserisci i costi mensili consuntivati a bilancio divisi per ciascun automezzo/matricola</p>
+                    </div>
+                    <button onclick="aggiungiNuovaMatricola()" class="px-3 py-1.5 bg-darkText text-white hover:bg-slate-800 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-plus text-pantone"></i> Aggiungi Automezzo
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left border-collapse min-w-[900px]">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-600 uppercase text-[11px] tracking-wider border-b border-slate-200">
+                                <th class="p-3">Matricola / Descrizione</th>
+                                <th class="p-3">CDC / Targa</th>
+                                <th class="p-3 text-right">Noleggio / Ammort. (€)</th>
+                                <th class="p-3 text-right">Carburante (€)</th>
+                                <th class="p-3 text-right">Manutenzione (€)</th>
+                                <th class="p-3 text-right">Assicurazione (€)</th>
+                                <th class="p-3 text-right">Telepass / Altro (€)</th>
+                                <th class="p-3 text-right bg-slate-200/60 font-bold">TOTALE (€)</th>
+                                <th class="p-3 text-center w-16">Azione</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-bilancio" class="divide-y divide-slate-200 text-sm">
+                            <!-- Popolato via JS -->
+                        </tbody>
+                        <tfoot id="tfoot-bilancio" class="bg-slate-800 text-white font-bold text-sm">
+                            <!-- Totali generati via JS -->
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ================= TAB 3: REPORT RIPARTIZIONE & QUADRATURA ================= -->
+        <section id="tab3" class="tab-content hidden space-y-6">
+            
+            <!-- KPI CARDS QUADRATURA -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Totale Costi Bilancio</p>
+                            <h3 id="kpi-costi-bilancio" class="text-2xl font-bold text-slate-800 mt-1">€ 0,00</h3>
+                        </div>
+                        <div class="p-3 bg-slate-100 text-slate-600 rounded-lg">
+                            <i class="fa-solid fa-file-invoice-dollar text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Totale Costi Ripartiti</p>
+                            <h3 id="kpi-costi-ripartiti" class="text-2xl font-bold text-slate-800 mt-1">€ 0,00</h3>
+                        </div>
+                        <div class="p-3 bg-blue-50 text-blue-600 rounded-lg">
+                            <i class="fa-solid fa-share-nodes text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Delta Quadratura</p>
+                            <h3 id="kpi-delta-quadratura" class="text-2xl font-bold text-emerald-600 mt-1">€ 0,00</h3>
+                        </div>
+                        <div id="kpi-delta-icon" class="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
+                            <i class="fa-solid fa-circle-check text-xl"></i>
+                        </div>
+                    </div>
+                    <p id="kpi-delta-msg" class="text-[11px] text-emerald-600 font-semibold mt-2">Quadratura ok (100% allocato)</p>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Commesse Servite</p>
+                            <h3 id="kpi-commesse-servite" class="text-2xl font-bold text-slate-800 mt-1">0</h3>
+                        </div>
+                        <div class="p-3 bg-pantone text-darkText rounded-lg">
+                            <i class="fa-solid fa-building-user text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MATRICE ANALITICA DI RIPARTIZIONE -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 bg-slate-50 border-b border-slate-200">
+                    <h2 class="font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-table-cells text-amber-500"></i> Matrice Analitica di Allocazione (Per Matricola & Commessa)
+                    </h2>
+                    <p class="text-xs text-slate-500">L'allocazione avviene calcolando il peso percentuale del driver (GG Netti) sul totale dei giorni lavorati dall'automezzo.</p>
+                </div>
+
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left border-collapse min-w-[1000px]">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-600 uppercase text-[11px] tracking-wider border-b border-slate-200">
+                                <th class="p-3">Matricola</th>
+                                <th class="p-3">Commessa</th>
+                                <th class="p-3 text-center">GG Netti</th>
+                                <th class="p-3 text-center">Peso Driver %</th>
+                                <th class="p-3 text-right">Noleggio (€)</th>
+                                <th class="p-3 text-right">Carburante (€)</th>
+                                <th class="p-3 text-right">Manutenzione (€)</th>
+                                <th class="p-3 text-right">Assic. / Altro (€)</th>
+                                <th class="p-3 text-right bg-amber-50 font-bold text-amber-900">TOTALE ALLOCATO (€)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-ripartizione-analitica" class="divide-y divide-slate-200 text-sm">
+                            <!-- Popolato via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- PIVOT RIEPILOGO PER COMMESSA -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 bg-slate-50 border-b border-slate-200">
+                    <h2 class="font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-bar text-amber-500"></i> Pivot Synthetic - Costi Automezzi Totali per Commessa
+                    </h2>
+                    <p class="text-xs text-slate-500">Riepilogo finale dei costi da addebitare alla contabilità analitica di ciascuna commessa/cantiere</p>
+                </div>
+
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left border-collapse min-w-[600px]">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-600 uppercase text-[11px] tracking-wider border-b border-slate-200">
+                                <th class="p-3">Codice / Nome Commessa</th>
+                                <th class="p-3 text-center">N° Automezzi Utilizzati</th>
+                                <th class="p-3 text-center">Totale Giorni Impiegati</th>
+                                <th class="p-3 text-right font-bold">Costo Totale Imputato (€)</th>
+                                <th class="p-3 text-right font-bold">% Incidenza su Totale</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-pivot-commessa" class="divide-y divide-slate-200 text-sm">
+                            <!-- Popolato via JS -->
+                        </tbody>
+                        <tfoot id="tfoot-pivot-commessa" class="bg-slate-800 text-white font-bold text-sm">
+                            <!-- Totali JS -->
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-white border-t border-slate-200 py-4 mt-8">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500">
+            Controller di Gestione - Modulo Ripartizione Costi Fleet & Fleet Management © 2026
+        </div>
+    </footer>
+
+    <!-- JAVASCRIPT APP LOGIC -->
+    <script>
+        // DATA MODEL INIZIALE
+        let appData = {
+            meseAnno: "2026-10", // Ottobre 2026 (31 giorni)
+            matricolaAttivaId: "M001",
+            commesseDisponibili: ["COM-2026-A1 (Cantiere Alfa)", "COM-2026-B2 (Cantiere Beta)", "COM-2026-C3 (Infrastrutture Gamma)", "COM-2026-D4 (Sede Central)"],
+            automezzi: [
+                {
+                    id: "M001",
+                    nome: "Iveco Daily 35C15",
+                    targa: "GA123XX",
+                    cdc: "CDC-01 (Lavori stradali)",
+                    costi: {
+                        noleggio: 850.00,
+                        carburante: 620.00,
+                        manutenzione: 180.00,
+                        assicurazione: 110.00,
+                        telepass: 90.00
+                    },
+                    assegnazioni: [
+                        {
+                            id: 1,
+                            commessa: "COM-2026-A1 (Cantiere Alfa)",
+                            dataInizio: "2026-10-01",
+                            dataFine: "2026-10-15",
+                            operatore: "+",
+                            variazione: 0,
+                            spunteGiorni: {} // formato: { '2026-10-01': true, ... }
+                        },
+                        {
+                            id: 2,
+                            commessa: "COM-2026-B2 (Cantiere Beta)",
+                            dataInizio: "2026-10-16",
+                            dataFine: "2026-10-31",
+                            operatore: "+",
+                            variazione: 0,
+                            spunteGiorni: {}
+                        }
+                    ]
+                },
+                {
+                    id: "M002",
+                    nome: "Fiat Doblò Cargo",
+                    targa: "FY987YY",
+                    cdc: "CDC-02 (Manutenzioni)",
+                    costi: {
+                        noleggio: 420.00,
+                        carburante: 310.00,
+                        manutenzione: 85.00,
+                        assicurazione: 75.00,
+                        telepass: 45.00
+                    },
+                    assegnazioni: [
+                        {
+                            id: 3,
+                            commessa: "COM-2026-B2 (Cantiere Beta)",
+                            dataInizio: "2026-10-01",
+                            dataFine: "2026-10-20",
+                            operatore: "-",
+                            variazione: 2,
+                            spunteGiorni: {}
+                        },
+                        {
+                            id: 4,
+                            commessa: "COM-2026-C3 (Infrastrutture Gamma)",
+                            dataInizio: "2026-10-21",
+                            dataFine: "2026-10-31",
+                            operatore: "+",
+                            variazione: 0,
+                            spunteGiorni: {}
+                        }
+                    ]
+                },
+                {
+                    id: "M003",
+                    nome: "MAN TGS 33.480 (Cava)",
+                    targa: "HB456ZZ",
+                    cdc: "CDC-03 (Mezzi Pesanti)",
+                    costi: {
+                        noleggio: 2100.00,
+                        carburante: 1450.00,
+                        manutenzione: 450.00,
+                        assicurazione: 220.00,
+                        telepass: 130.00
+                    },
+                    assegnazioni: [
+                        {
+                            id: 5,
+                            commessa: "COM-2026-C3 (Infrastrutture Gamma)",
+                            dataInizio: "2026-10-01",
+                            dataFine: "2026-10-31",
+                            operatore: "+",
+                            variazione: 0,
+                            spunteGiorni: {}
+                        }
+                    ]
+                }
+            ]
+        };
+
+        // INIZIALIZZAZIONE ALLA CARICA DEL DOCUMENTO
+        window.onload = function() {
+            InizializzaDatiSpunte();
+            popolaSelectMatricole();
+            renderTab1();
+            renderTab2();
+            calcolaERipartisci(false);
+        };
+
+        // Inizializza le spunte predefinite del calendario in base alle date inizio e fine
+        function InizializzaDatiSpunte() {
+            appData.automezzi.forEach(auto => {
+                auto.assegnazioni.forEach(ass => {
+                    if (Object.keys(ass.spunteGiorni).length === 0) {
+                        const start = new Date(ass.dataInizio);
+                        const end = new Date(ass.dataFine);
+                        let curr = new Date(start);
+                        while (curr <= end) {
+                            const dateStr = curr.toISOString().split('T')[0];
+                            ass.spunteGiorni[dateStr] = true;
+                            curr.setDate(curr.getDate() + 1);
+                        }
+                    }
+                });
+            });
+        }
+
+        // NAVIGATION TAB
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('border-pantone', 'text-darkText', 'font-bold');
+                btn.classList.add('border-transparent', 'text-slate-500', 'font-medium');
+            });
+
+            const activeBtn = document.getElementById('btn-' + tabId);
+            activeBtn.classList.add('border-pantone', 'text-darkText', 'font-bold');
+            activeBtn.classList.remove('border-transparent', 'text-slate-500', 'font-medium');
+
+            if (tabId === 'tab3') {
+                calcolaERipartisci(false);
+            }
+        }
+
+        // ================= TAB 1 LOGIC =================
+        function popolaSelectMatricole() {
+            const select = document.getElementById('select-matricola');
+            select.innerHTML = '';
+            appData.automezzi.forEach(auto => {
+                const opt = document.createElement('option');
+                opt.value = auto.id;
+                opt.textContent = `${auto.id} - ${auto.nome} (${auto.targa})`;
+                if (auto.id === appData.matricolaAttivaId) opt.selected = true;
+                select.appendChild(opt);
+            });
+        }
+
+        function cambiaMatricolaAttiva() {
+            appData.matricolaAttivaId = document.getElementById('select-matricola').value;
+            renderTab1();
+        }
+
+        function getMatricolaAttiva() {
+            return appData.automezzi.find(a => a.id === appData.matricolaAttivaId);
+        }
+
+        function renderTab1() {
+            const auto = getMatricolaAttiva();
+            if (!auto) return;
+
+            // Aggiorna scheda header matricola
+            document.getElementById('info-matricola-nome').textContent = `${auto.id} - ${auto.nome}`;
+            document.getElementById('info-matricola-dettagli').textContent = `Targa: ${auto.targa} | CDC: ${auto.cdc}`;
+
+            // Render tabella assegnazioni
+            const tbody = document.getElementById('tbody-commesse');
+            tbody.innerHTML = '';
+
+            let ggTotaliMatricola = 0;
+            let ggNettiMatricola = 0;
+
+            // Verifica sovrapposizioni date
+            verificaSovrapposizioni(auto);
+
+            auto.assegnazioni.forEach((ass, index) => {
+                const ggTot = calcolaGiorniData(ass.dataInizio, ass.dataFine);
+                const ggAss = Object.values(ass.spunteGiorni).filter(Boolean).length;
+                const varVal = parseInt(ass.variazione) || 0;
+                let ggNetti = ass.operatore === '+' ? ggAss + varVal : ggAss - varVal;
+                if (ggNetti < 0) ggNetti = 0;
+
+                ggTotaliMatricola += ggAss;
+                ggNettiMatricola += ggNetti;
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition";
+                tr.innerHTML = `
+                    <td class="p-3">
+                        <select onchange="aggiornaCampoAssegnazione(${ass.id}, 'commessa', this.value)" class="w-full bg-slate-50 border border-slate-300 text-xs rounded p-2 font-medium">
+                            ${appData.commesseDisponibili.map(c => `<option value="${c}" ${c === ass.commessa ? 'selected' : ''}>${c}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td class="p-3">
+                        <input type="date" value="${ass.dataInizio}" onchange="aggiornaCampoAssegnazione(${ass.id}, 'dataInizio', this.value)" class="w-full bg-slate-50 border border-slate-300 text-xs rounded p-1.5">
+                    </td>
+                    <td class="p-3">
+                        <input type="date" value="${ass.dataFine}" onchange="aggiornaCampoAssegnazione(${ass.id}, 'dataFine', this.value)" class="w-full bg-slate-50 border border-slate-300 text-xs rounded p-1.5">
+                    </td>
+                    <td class="p-3 text-center font-semibold text-slate-500">${ggTot}</td>
+                    <td class="p-3 text-center font-bold text-slate-800">${ggAss}</td>
+                    <td class="p-3 text-center">
+                        <select onchange="aggiornaCampoAssegnazione(${ass.id}, 'operatore', this.value)" class="bg-slate-50 border border-slate-300 text-xs rounded p-1.5 font-bold">
+                            <option value="+" ${ass.operatore === '+' ? 'selected' : ''}>+ Add</option>
+                            <option value="-" ${ass.operatore === '-' ? 'selected' : ''}>- Sub</option>
+                        </select>
+                    </td>
+                    <td class="p-3 text-center">
+                        <input type="number" min="0" value="${ass.variazione}" onchange="aggiornaCampoAssegnazione(${ass.id}, 'variazione', this.value)" class="w-16 bg-slate-50 border border-slate-300 text-xs rounded p-1.5 text-center font-medium">
+                    </td>
+                    <td class="p-3 text-center font-bold text-emerald-600 bg-emerald-50/50">${ggNetti}</td>
+                    <td class="p-3 text-center">
+                        <button onclick="rimuoviRigaCommessa(${ass.id})" class="text-rose-500 hover:text-rose-700 p-1">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('info-gg-totali').textContent = ggTotaliMatricola;
+            document.getElementById('info-gg-netti').textContent = ggNettiMatricola;
+
+            renderCalendario(auto);
+        }
+
+        function calcolaGiorniData(d1, d2) {
+            if (!d1 || !d2) return 0;
+            const dt1 = new Date(d1);
+            const dt2 = new Date(d2);
+            const diffTime = dt2 - dt1;
+            if (diffTime < 0) return 0;
+            return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        }
+
+        function aggiornaCampoAssegnazione(idAss, campo, valore) {
+            const auto = getMatricolaAttiva();
+            const ass = auto.assegnazioni.find(a => a.id === idAss);
+            if (!ass) return;
+
+            ass[campo] = valore;
+
+            if (campo === 'dataInizio' || campo === 'dataFine') {
+                // Rigenera spunte per il nuovo intervallo
+                ass.spunteGiorni = {};
+                const start = new Date(ass.dataInizio);
+                const end = new Date(ass.dataFine);
+                let curr = new Date(start);
+                while (curr <= end && !isNaN(curr)) {
+                    const dateStr = curr.toISOString().split('T')[0];
+                    ass.spunteGiorni[dateStr] = true;
+                    curr.setDate(curr.getDate() + 1);
+                }
+            }
+
+            renderTab1();
+        }
+
+        function aggiungiRigaCommessa() {
+            const auto = getMatricolaAttiva();
+            const newId = Date.now();
+            auto.assegnazioni.push({
+                id: newId,
+                commessa: appData.commesseDisponibili[0],
+                dataInizio: "2026-10-01",
+                dataFine: "2026-10-15",
+                operatore: "+",
+                variazione: 0,
+                spunteGiorni: {}
+            });
+            // Inizializza spunte
+            aggiornaCampoAssegnazione(newId, 'dataInizio', '2026-10-01');
+        }
+
+        function rimuoviRigaCommessa(idAss) {
+            const auto = getMatricolaAttiva();
+            auto.assegnazioni = auto.assegnazioni.filter(a => a.id !== idAss);
+            renderTab1();
+        }
+
+        function renderCalendario(auto) {
+            const container = document.getElementById('calendario-container');
+            container.innerHTML = '';
+
+            if (auto.assegnazioni.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 italic">Nessuna commessa assegnata a questa matricola.</p>`;
+                return;
+            }
+
+            // Calcolo giorni del mese di Ottobre 2026 (31 giorni)
+            const anno = 2026;
+            const mese = 10; // Ottobre
+            const numGiorni = 31;
+
+            let html = `<table class="text-xs border-collapse w-full"><thead><tr><th class="p-2 border border-slate-200 bg-slate-100 text-left min-w-[200px]">Commessa / Giorno</th>`;
+
+            for (let g = 1; g <= numGiorni; g++) {
+                const dateObj = new Date(anno, mese - 1, g);
+                const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+                html += `<th class="p-1 border border-slate-200 text-center w-8 ${isWeekend ? 'bg-red-100 text-red-700 font-bold' : 'bg-slate-50 text-slate-600'}">${g}</th>`;
+            }
+            html += `</tr></thead><tbody>`;
+
+            auto.assegnazioni.forEach(ass => {
+                html += `<tr><td class="p-2 border border-slate-200 font-semibold text-slate-700 bg-slate-50">${ass.commessa}</td>`;
+                for (let g = 1; g <= numGiorni; g++) {
+                    const dayStr = g < 10 ? `0${g}` : `${g}`;
+                    const dateStr = `${anno}-${mese}-${dayStr}`;
+                    const dateObj = new Date(anno, mese - 1, g);
+                    const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+                    const isChecked = ass.spunteGiorni[dateStr] === true;
+
+                    html += `
+                        <td class="p-1 border border-slate-200 text-center ${isWeekend ? 'bg-red-50/50' : ''}">
+                            <input type="checkbox" ${isChecked ? 'checked' : ''} 
+                                   onchange="toggleSpuntaGiorno(${ass.id}, '${dateStr}', this.checked)"
+                                   class="w-3.5 h-3.5 rounded text-amber-500 focus:ring-amber-400 cursor-pointer">
+                        </td>
+                    `;
+                }
+                html += `</tr>`;
+            });
+
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+        }
+
+        function toggleSpuntaGiorno(idAss, dateStr, checked) {
+            const auto = getMatricolaAttiva();
+            const ass = auto.assegnazioni.find(a => a.id === idAss);
+            if (ass) {
+                ass.spunteGiorni[dateStr] = checked;
+                renderTab1();
+            }
+        }
+
+        function verificaSovrapposizioni(auto) {
+            let conflitti = [];
+            for (let i = 0; i < auto.assegnazioni.length; i++) {
+                for (let j = i + 1; j < auto.assegnazioni.length; j++) {
+                    const a1 = auto.assegnazioni[i];
+                    const a2 = auto.assegnazioni[j];
+
+                    if (a1.dataInizio <= a2.dataFine && a1.dataFine >= a2.dataInizio) {
+                        conflitti.push(`Sovrapposizione temporale rilevata per <b>${auto.id}</b> tra "${a1.commessa}" e "${a2.commessa}".`);
+                    }
+                }
+            }
+
+            if (conflitti.length > 0) {
+                mostraNotifica(conflitti.join('<br>'));
+            } else {
+                chiudiNotifica();
+            }
+        }
+
+        function mostraNotifica(msg) {
+            document.getElementById('notification-text').innerHTML = msg;
+            document.getElementById('notification-banner').classList.remove('hidden');
+        }
+
+        function chiudiNotifica() {
+            document.getElementById('notification-banner').classList.add('hidden');
+        }
+
+        // ================= TAB 2 LOGIC =================
+        function renderTab2() {
+            const tbody = document.getElementById('tbody-bilancio');
+            const tfoot = document.getElementById('tfoot-bilancio');
+            tbody.innerHTML = '';
+
+            let totNoleggio = 0, totCarb = 0, totManut = 0, totAss = 0, totTele = 0, totGenerale = 0;
+
+            appData.automezzi.forEach(auto => {
+                const subTot = (auto.costi.noleggio || 0) + (auto.costi.carburante || 0) + 
+                               (auto.costi.manutenzione || 0) + (auto.costi.assicurazione || 0) + 
+                               (auto.costi.telepass || 0);
+
+                totNoleggio += auto.costi.noleggio || 0;
+                totCarb += auto.costi.carburante || 0;
+                totManut += auto.costi.manutenzione || 0;
+                totAss += auto.costi.assicurazione || 0;
+                totTele += auto.costi.telepass || 0;
+                totGenerale += subTot;
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition";
+                tr.innerHTML = `
+                    <td class="p-3">
+                        <input type="text" value="${auto.nome}" onchange="aggiornaInfoAutomezzo('${auto.id}', 'nome', this.value)" class="w-full bg-slate-50 border border-slate-300 text-xs rounded p-1.5 font-bold">
+                    </td>
+                    <td class="p-3">
+                        <div class="flex gap-1">
+                            <input type="text" value="${auto.targa}" onchange="aggiornaInfoAutomezzo('${auto.id}', 'targa', this.value)" placeholder="Targa" class="w-1/2 bg-slate-50 border border-slate-300 text-xs rounded p-1.5">
+                            <input type="text" value="${auto.cdc}" onchange="aggiornaInfoAutomezzo('${auto.id}', 'cdc', this.value)" placeholder="CDC" class="w-1/2 bg-slate-50 border border-slate-300 text-xs rounded p-1.5">
+                        </div>
+                    </td>
+                    <td class="p-3 text-right">
+                        <input type="number" step="0.01" value="${auto.costi.noleggio}" onchange="aggiornaCostoAutomezzo('${auto.id}', 'noleggio', this.value)" class="w-24 bg-slate-50 border border-slate-300 text-xs rounded p-1.5 text-right font-medium">
+                    </td>
+                    <td class="p-3 text-right">
+                        <input type="number" step="0.01" value="${auto.costi.carburante}" onchange="aggiornaCostoAutomezzo('${auto.id}', 'carburante', this.value)" class="w-24 bg-slate-50 border border-slate-300 text-xs rounded p-1.5 text-right font-medium">
+                    </td>
+                    <td class="p-3 text-right">
+                        <input type="number" step="0.01" value="${auto.costi.manutenzione}" onchange="aggiornaCostoAutomezzo('${auto.id}', 'manutenzione', this.value)" class="w-24 bg-slate-50 border border-slate-300 text-xs rounded p-1.5 text-right font-medium">
+                    </td>
+                    <td class="p-3 text-right">
+                        <input type="number" step="0.01" value="${auto.costi.assicurazione}" onchange="aggiornaCostoAutomezzo('${auto.id}', 'assicurazione', this.value)" class="w-24 bg-slate-50 border border-slate-300 text-xs rounded p-1.5 text-right font-medium">
+                    </td>
+                    <td class="p-3 text-right">
+                        <input type="number" step="0.01" value="${auto.costi.telepass}" onchange="aggiornaCostoAutomezzo('${auto.id}', 'telepass', this.value)" class="w-24 bg-slate-50 border border-slate-300 text-xs rounded p-1.5 text-right font-medium">
+                    </td>
+                    <td class="p-3 text-right font-bold text-slate-900 bg-slate-100/70">
+                        ${formatEuro(subTot)}
+                    </td>
+                    <td class="p-3 text-center">
+                        <button onclick="rimuoviAutomezzo('${auto.id}')" class="text-rose-500 hover:text-rose-700 p-1">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            tfoot.innerHTML = `
+                <tr>
+                    <td colspan="2" class="p-3 uppercase">TOTALE GENERALE BILANCIO</td>
+                    <td class="p-3 text-right">${formatEuro(totNoleggio)}</td>
+                    <td class="p-3 text-right">${formatEuro(totCarb)}</td>
+                    <td class="p-3 text-right">${formatEuro(totManut)}</td>
+                    <td class="p-3 text-right">${formatEuro(totAss)}</td>
+                    <td class="p-3 text-right">${formatEuro(totTele)}</td>
+                    <td class="p-3 text-right text-pantone text-base">${formatEuro(totGenerale)}</td>
+                    <td></td>
+                </tr>
+            `;
+        }
+
+        function aggiornaInfoAutomezzo(id, campo, val) {
+            const auto = appData.automezzi.find(a => a.id === id);
+            if (auto) auto[campo] = val;
+            popolaSelectMatricole();
+        }
+
+        function aggiornaCostoAutomezzo(id, voce, val) {
+            const auto = appData.automezzi.find(a => a.id === id);
+            if (auto) {
+                auto.costi[voce] = parseFloat(val) || 0;
+                renderTab2();
+            }
+        }
+
+        function aggiungiNuovaMatricola() {
+            const newNum = appData.automezzi.length + 1;
+            const newId = `M00${newNum}`;
+            appData.automezzi.push({
+                id: newId,
+                nome: `Nuovo Automezzo ${newNum}`,
+                targa: "AA000AA",
+                cdc: `CDC-0${newNum}`,
+                costi: { noleggio: 0, carburante: 0, manutenzione: 0, assicurazione: 0, telepass: 0 },
+                assegnazioni: []
+            });
+            popolaSelectMatricole();
+            renderTab2();
+        }
+
+        function rimuoviAutomezzo(id) {
+            if (appData.automezzi.length <= 1) {
+                alert("Impossibile rimuovere tutti gli automezzi. Almeno uno deve rimanere presente.");
+                return;
+            }
+            appData.automezzi = appData.automezzi.filter(a => a.id !== id);
+            if (appData.matricolaAttivaId === id) {
+                appData.matricolaAttivaId = appData.automezzi[0].id;
+            }
+            popolaSelectMatricole();
+            renderTab1();
+            renderTab2();
+        }
+
+        // ================= TAB 3 LOGIC & ENGINE RIPARTIZIONE =================
+        function calcolaERipartisci(showAlert) {
+            const matriceAnalitica = [];
+            const pivotCommesse = {};
+
+            let totaleCostiBilancio = 0;
+            let totaleCostiRipartiti = 0;
+
+            // 1. Calcola totale bilancio
+            appData.automezzi.forEach(auto => {
+                const subTot = (auto.costi.noleggio || 0) + (auto.costi.carburante || 0) + 
+                               (auto.costi.manutenzione || 0) + (auto.costi.assicurazione || 0) + 
+                               (auto.costi.telepass || 0);
+                totaleCostiBilancio += subTot;
+            });
+
+            // 2. Per ogni automezzo, calcola i GG netti totali per definire i pesi del driver
+            appData.automezzi.forEach(auto => {
+                let ggNettiTotaliAuto = 0;
+
+                // Prima passata: somma giorni netti
+                const dettagliAssegnazioni = auto.assegnazioni.map(ass => {
+                    const ggAss = Object.values(ass.spunteGiorni).filter(Boolean).length;
+                    const varVal = parseInt(ass.variazione) || 0;
+                    let ggNetti = ass.operatore === '+' ? ggAss + varVal : ggAss - varVal;
+                    if (ggNetti < 0) ggNetti = 0;
+                    ggNettiTotaliAuto += ggNetti;
+
+                    return {
+                        commessa: ass.commessa,
+                        ggNetti: ggNetti
+                    };
+                });
+
+                // Seconda passata: ripartizione costi
+                dettagliAssegnazioni.forEach(item => {
+                    let pesoPercentuale = 0;
+                    if (ggNettiTotaliAuto > 0) {
+                        pesoPercentuale = item.ggNetti / ggNettiTotaliAuto;
+                    }
+
+                    const nolAlloc = (auto.costi.noleggio || 0) * pesoPercentuale;
+                    const carbAlloc = (auto.costi.carburante || 0) * pesoPercentuale;
+                    const manutAlloc = (auto.costi.manutenzione || 0) * pesoPercentuale;
+                    const assAltriAlloc = ((auto.costi.assicurazione || 0) + (auto.costi.telepass || 0)) * pesoPercentuale;
+                    const totAlloc = nolAlloc + carbAlloc + manutAlloc + assAltriAlloc;
+
+                    totaleCostiRipartiti += totAlloc;
+
+                    matriceAnalitica.push({
+                        matricola: auto.id,
+                        nomeAuto: auto.nome,
+                        commessa: item.commessa,
+                        ggNetti: item.ggNetti,
+                        pesoPct: pesoPercentuale * 100,
+                        nol: nolAlloc,
+                        carb: carbAlloc,
+                        manut: manutAlloc,
+                        assAltri: assAltriAlloc,
+                        totale: totAlloc
+                    });
+
+                    // Aggrega Pivot per Commessa
+                    if (!pivotCommesse[item.commessa]) {
+                        pivotCommesse[item.commessa] = {
+                            commessa: item.commessa,
+                            mezziCoinvolti: new Set(),
+                            totGGNetti: 0,
+                            totCosto: 0
+                        };
+                    }
+                    pivotCommesse[item.commessa].mezziCoinvolti.add(auto.id);
+                    pivotCommesse[item.commessa].totGGNetti += item.ggNetti;
+                    pivotCommesse[item.commessa].totCosto += totAlloc;
+                });
+            });
+
+            // Render KPI Cards
+            const delta = totaleCostiBilancio - totaleCostiRipartiti;
+
+            document.getElementById('kpi-costi-bilancio').textContent = formatEuro(totaleCostiBilancio);
+            document.getElementById('kpi-costi-ripartiti').textContent = formatEuro(totaleCostiRipartiti);
+            
+            const kpiDelta = document.getElementById('kpi-delta-quadratura');
+            const kpiDeltaIcon = document.getElementById('kpi-delta-icon');
+            const kpiDeltaMsg = document.getElementById('kpi-delta-msg');
+
+            kpiDelta.textContent = formatEuro(Math.abs(delta));
+            if (Math.abs(delta) < 0.01) {
+                kpiDelta.className = "text-2xl font-bold text-emerald-600 mt-1";
+                kpiDeltaIcon.className = "p-3 bg-emerald-50 text-emerald-600 rounded-lg";
+                kpiDeltaMsg.textContent = "Quadratura Perfetta (100% allocato)";
+                kpiDeltaMsg.className = "text-[11px] text-emerald-600 font-semibold mt-2";
+            } else {
+                kpiDelta.className = "text-2xl font-bold text-rose-600 mt-1";
+                kpiDeltaIcon.className = "p-3 bg-rose-50 text-rose-600 rounded-lg";
+                kpiDeltaMsg.textContent = "Attenzione: Presente uno scostamento!";
+                kpiDeltaMsg.className = "text-[11px] text-rose-600 font-semibold mt-2";
+            }
+
+            document.getElementById('kpi-commesse-servite').textContent = Object.keys(pivotCommesse).length;
+
+            // Render Matrice Analitica
+            const tbodyMatrice = document.getElementById('tbody-ripartizione-analitica');
+            tbodyMatrice.innerHTML = '';
+
+            matriceAnalitica.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition";
+                tr.innerHTML = `
+                    <td class="p-3 font-semibold text-slate-800">${row.matricola} - ${row.nomeAuto}</td>
+                    <td class="p-3 font-medium text-slate-700">${row.commessa}</td>
+                    <td class="p-3 text-center font-bold">${row.ggNetti}</td>
+                    <td class="p-3 text-center font-bold text-blue-600">${row.pesoPct.toFixed(1)}%</td>
+                    <td class="p-3 text-right">${formatEuro(row.nol)}</td>
+                    <td class="p-3 text-right">${formatEuro(row.carb)}</td>
+                    <td class="p-3 text-right">${formatEuro(row.manut)}</td>
+                    <td class="p-3 text-right">${formatEuro(row.assAltri)}</td>
+                    <td class="p-3 text-right font-bold text-amber-900 bg-amber-50/60">${formatEuro(row.totale)}</td>
+                `;
+                tbodyMatrice.appendChild(tr);
+            });
+
+            // Render Pivot Commessa
+            const tbodyPivot = document.getElementById('tbody-pivot-commessa');
+            const tfootPivot = document.getElementById('tfoot-pivot-commessa');
+            tbodyPivot.innerHTML = '';
+
+            let sumCostoPivot = 0;
+            let sumGGPivot = 0;
+
+            Object.values(pivotCommesse).forEach(p => {
+                sumCostoPivot += p.totCosto;
+                sumGGPivot += p.totGGNetti;
+            });
+
+            Object.values(pivotCommesse).forEach(p => {
+                const incidenza = sumCostoPivot > 0 ? (p.totCosto / sumCostoPivot) * 100 : 0;
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition";
+                tr.innerHTML = `
+                    <td class="p-3 font-bold text-slate-800">${p.commessa}</td>
+                    <td class="p-3 text-center font-semibold">${p.mezziCoinvolti.size}</td>
+                    <td class="p-3 text-center font-semibold">${p.totGGNetti}</td>
+                    <td class="p-3 text-right font-bold text-slate-900">${formatEuro(p.totCosto)}</td>
+                    <td class="p-3 text-right font-bold text-emerald-600">${incidenza.toFixed(1)}%</td>
+                `;
+                tbodyPivot.appendChild(tr);
+            });
+
+            tfootPivot.innerHTML = `
+                <tr>
+                    <td class="p-3 uppercase">TOTALE COMMESSE</td>
+                    <td class="p-3 text-center">-</td>
+                    <td class="p-3 text-center">${sumGGPivot}</td>
+                    <td class="p-3 text-right text-pantone font-bold text-base">${formatEuro(sumCostoPivot)}</td>
+                    <td class="p-3 text-right">100.0%</td>
+                </tr>
+            `;
+
+            if (showAlert) {
+                alert("Ripartizione e Quadratura aggiornate con successo!");
+            }
+        }
+
+        // UTILITIES
+        function formatEuro(val) {
+            return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(val || 0);
+        }
+
+        function caricaDatiEsempio() {
+            // Ripristina stato iniziale
+            appData.matricolaAttivaId = "M001";
+            InizializzaDatiSpunte();
+            popolaSelectMatricole();
+            renderTab1();
+            renderTab2();
+            calcolaERipartisci(false);
+            alert("Dati di esempio caricati correttamente!");
+        }
+
+        function esportaCSV() {
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Matricola;Commessa;GG Netti;Peso %;Noleggio (€);Carburante (€);Manutenzione (€);Assicurazione e Altro (€);Totale Allocato (€)\n";
+
+            // Rigenera dati per export
+            appData.automezzi.forEach(auto => {
+                let ggNettiTotaliAuto = 0;
+                const assegnazioniDati = auto.assegnazioni.map(ass => {
+                    const ggAss = Object.values(ass.spunteGiorni).filter(Boolean).length;
+                    const varVal = parseInt(ass.variazione) || 0;
+                    let ggNetti = ass.operatore === '+' ? ggAss + varVal : ggAss - varVal;
+                    if (ggNetti < 0) ggNetti = 0;
+                    ggNettiTotaliAuto += ggNetti;
+                    return { commessa: ass.commessa, ggNetti: ggNetti };
+                });
+
+                assegnazioniDati.forEach(item => {
+                    const peso = ggNettiTotaliAuto > 0 ? item.ggNetti / ggNettiTotaliAuto : 0;
+                    const nol = ((auto.costi.noleggio || 0) * peso).toFixed(2);
+                    const carb = ((auto.costi.carburante || 0) * peso).toFixed(2);
+                    const manut = ((auto.costi.manutenzione || 0) * peso).toFixed(2);
+                    const ass = (((auto.costi.assicurazione || 0) + (auto.costi.telepass || 0)) * peso).toFixed(2);
+                    const tot = (parseFloat(nol) + parseFloat(carb) + parseFloat(manut) + parseFloat(ass)).toFixed(2);
+
+                    csvContent += `"${auto.id} - ${auto.nome}";"${item.commessa}";${item.ggNetti};${(peso * 100).toFixed(1)}%;${nol};${carb};${manut};${ass};${tot}\n`;
+                });
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "Ripartizione_Costi_Automezzi.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
